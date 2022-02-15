@@ -59,7 +59,7 @@
 
 
 // Uncomment this line to see lots of debugging info!
-//#define USBHOST_PRINT_DEBUG
+#define USBHOST_PRINT_DEBUG
 
 
 // This can let you control where to send the debugging messages
@@ -833,6 +833,35 @@ private:
 	bool control_queued;
 };
 
+class BarcodescannerController : public USBDriver {
+public:
+	BarcodescannerController(USBHost &host) { init(); }
+	BarcodescannerController(USBHost *host) { init(); }
+
+	operator bool() { return (device != nullptr); }
+	void     attachCodeScanned(void (*f)(char * scannedCode)) { codeScannedFunction = f; }
+
+protected:
+	virtual bool claim(Device_t *device, int type, const uint8_t *descriptors, uint32_t len);
+	virtual void control(const Transfer_t *transfer);
+	virtual void disconnect();
+	static void callback(const Transfer_t *transfer);
+	void new_data(const Transfer_t *transfer);
+	void init();
+
+private:
+	void update();
+	void (*codeScannedFunction)(char * scannedCode);
+	Pipe_t *datapipe;
+	setup_t setup;
+	uint8_t report[9];
+	uint8_t prev_report[9];
+	Pipe_t mypipes[2] __attribute__ ((aligned(32)));
+	Transfer_t mytransfers[4] __attribute__ ((aligned(32)));
+	strbuf_t mystring_bufs[1];
+
+	bool control_queued;
+};
 
 class MouseController : public USBHIDInput, public BTHIDInput {
 public:
