@@ -23,7 +23,8 @@
 
 #include <Arduino.h>
 #include <USBHost_t36.h>  // Read this header first for key info
-
+#include <usb_ch9.h>
+#include <USBHost_t36_constants.h>
 #define print   USBHost::print_
 #define println USBHost::println_
 
@@ -37,56 +38,54 @@ void BarcodescannerController::init()
 
 bool BarcodescannerController::claim(Device_t *dev, int type, const uint8_t *descriptors, uint32_t len)
 {
-	println("BarcodescannerController claim this=", (uint32_t)this, HEX);
+	// Claim whole device. The descriptor is always the interface descriptor followed by any HID desc and ENDP descs regardless the driver claiming device or interface.
+	if (type != claim_type_device) return false;
+	println("type = ",type, HEX);
+    print_hexbytes(descriptors, len);
+	if (len < INTR_DESCR_LEN+HID_DESC_LEN+EP_DESCR_LEN) return false;
 
-	// only claim at interface level
-	if (type != 1) return false;
-	if (len < 9+9+7) return false;
-	print_hexbytes(descriptors, len);
-
-	uint32_t numendpoint = descriptors[4];
+	uint32_t numendpoint = descriptors[INTR_DESC_offset_bNumEndpoints];
 	if (numendpoint < 1) return false;
-	if (descriptors[5] != 3) return false; // bInterfaceClass, 3 = HID
-	if (descriptors[6] != 1) return false; // bInterfaceSubClass, 1 = Boot Device
-	if (descriptors[7] != 1) return false; // bInterfaceProtocol, 1 = Keyboard
-	if (descriptors[9] != 9) return false;
-	if (descriptors[10] != 33) return false; // HID descriptor (ignored, Boot Protocol)
-	if (descriptors[18] != 7) return false;
-	if (descriptors[19] != 5) return false; // endpoint descriptor
-	uint32_t endpoint = descriptors[20];
-	println("ep = ", endpoint, HEX);
-	if ((endpoint & 0xF0) != 0x80) return false; // must be IN direction
-	endpoint &= 0x0F;
-	if (endpoint == 0) return false;
-	if (descriptors[21] != 3) return false; // must be interrupt type
-	uint32_t size = descriptors[22] | (descriptors[23] << 8);
-	println("packet size = ", size);
+	if (descriptors[INTR_DESC_offset_bInterfaceClass] != HID_INTF) return false; // bInterfaceClass, 3 = HID
+	if (descriptors[INTR_DESC_offset_bInterfaceSubClass] != BOOT_INTF_SUBCLASS) return false; // bInterfaceSubClass, 1 = Boot Device
+	if (descriptors[INTR_DESC_offset_bInterfaceProtocol] != RPT_PROTOCOL) return false; // bInterfaceProtocol, 1 = Keyboard
+	if (descriptors[INTR_DESCR_LEN+DESC_offset_bLength] != HID_DESC_LEN) return false;
+	if (descriptors[INTR_DESCR_LEN+DESC_offset_bDescriptorType] != HID_DESCRIPTOR_HID) return false; // HID descriptor (ignored, Boot Protocol)
+	if (descriptors[INTR_DESCR_LEN+HID_DESC_LEN+DESC_offset_bLength] != EP_DESCR_LEN) return false;
+	if (descriptors[INTR_DESCR_LEN+HID_DESC_LEN+DESC_offset_bDescriptorType] != USB_DESCRIPTOR_ENDPOINT) return false; // endpoint descriptor
+	uint32_t EP_addr = descriptors[INTR_DESCR_LEN+HID_DESC_LEN+ENDP_DESC_offset_bEndpointAddress];
+	println("EP Addr = ", EP_addr, HEX);
+	if ((EP_addr & 0xF0) != USB_SETUP_DEVICE_TO_HOST) return false; // must be IN direction
+	EP_addr &= 0x0F;
+	if (EP_addr == 0) return false;
+	if (descriptors[INTR_DESCR_LEN+HID_DESC_LEN+ENDP_DESC_offset_bmAttributes] != 3) return false; // must be interrupt type
+	uint32_t size = descriptors[INTR_DESCR_LEN+HID_DESC_LEN+ENDP_DESC_offset_wMaxPacketSize] | (descriptors[INTR_DESCR_LEN+HID_DESC_LEN+ENDP_DESC_offset_wMaxPacketSize+1] << 8);
+	println("PK size = ", size);
 	if ((size < 8) || (size > 64)) {
 		return false; // Keyboard Boot Protocol is 8 bytes, but maybe others have longer... 
 	}
 #ifdef USBHS_KEYBOARD_INTERVAL 
 	uint32_t interval = USBHS_KEYBOARD_INTERVAL;
 #else
-	uint32_t interval = descriptors[24];
+	uint32_t interval = descriptors[INTR_DESCR_LEN+HID_DESC_LEN+ENDP_DESC_offset_bInterval];
 #endif
-	println("polling interval = ", interval);
-	datapipe = new_Pipe(dev, 3, endpoint, 1, 8, interval);
+	println("Interval= ", interval);
+	datapipe = new_Pipe(dev, 3, EP_addr, 1, 8, interval);
 	datapipe->callback_function = callback;
 	queue_Data_Transfer(datapipe, report, 8, this);
 
     mk_setup(setup, 0x21, 10, 0, 0, 0); // 10=SET_IDLE
 	queue_Control_Transfer(dev, &setup, NULL, this);
 	control_queued = true;
+	println("BarcodescannerController claimed this=", (uint32_t)this, HEX);
 	return true;
 }
 
 void BarcodescannerController::control(const Transfer_t *transfer)
 {
-	println("control callback (keyboard)");
+	println("BarcodescannerController control callback");
 	control_queued = false;
 	print_hexbytes(transfer->buffer, transfer->length);
-	// To decode hex dump to human readable HID report summary:
-	//   http://eleccelerator.com/usbdescreqparser/
 	uint32_t mesg = transfer->setup.word1;
 	println("  mesg = ", mesg, HEX);
 	if (mesg == 0x00B21 && transfer->length == 0) { // SET_PROTOCOL
@@ -122,8 +121,8 @@ void keyReleased() __attribute__ ((weak, alias("__keyboardControllerEmptyCallbac
 
 void BarcodescannerController::new_data(const Transfer_t *transfer)
 {
-	println("BarcodescannerController Callback (member)");
-	print("  KB Data: ");
+	println("BarcodescannerController data callback");
+	print("  Report: ");
 	print_hexbytes(transfer->buffer, 8);
 	if (codeScannedFunction) {
         codeScannedFunction((char*)(transfer->buffer));
