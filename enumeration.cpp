@@ -155,7 +155,7 @@ void USBHost::enumeration(const Transfer_t *transfer)
 		return;
 	}
 
-	println("enumeration:");
+	println("enumeration:",dev->enum_state, DEC);
 	//print_hexbytes(transfer->buffer, transfer->length);
 	//print(transfer);
 	dev = transfer->pipe->device;
@@ -189,13 +189,13 @@ void USBHost::enumeration(const Transfer_t *transfer)
 			dev->bDeviceProtocol = enumbuf[6];
 			dev->idVendor = enumbuf[8] | (enumbuf[9] << 8);
 			dev->idProduct = enumbuf[10] | (enumbuf[11] << 8);
-			enumbuf[0] = enumbuf[14];
-			enumbuf[1] = enumbuf[15];
-			enumbuf[2] = enumbuf[16];
+			enumbuf[0] = enumbuf[14];   // iManufacturer
+			enumbuf[1] = enumbuf[15];   // iProduct 
+			enumbuf[2] = enumbuf[16];   // iSerialNumber 
 			if ((enumbuf[0] | enumbuf[1] | enumbuf[2]) > 0) {
-				dev->enum_state = 3;
+				dev->enum_state = 3;    // Ask for string desc if any of them exist.
 			} else {
-				dev->enum_state = 11;
+				dev->enum_state = 11;   // Otherwise proceed to request CONF DESC
 			}
 			break;
 		case 3: // request Language ID

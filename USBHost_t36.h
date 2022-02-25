@@ -190,7 +190,7 @@ struct Device_struct {
 	uint8_t  address;
 	uint8_t  hub_address;
 	uint8_t  hub_port;
-	uint8_t  enum_state;
+	uint8_t  enum_state;    // 0: read 8 bytes of DEV DESC, 1: read 18 bytes of DEV DESC, etc. enumeration.cpp
 	uint8_t  bDeviceClass;
 	uint8_t  bDeviceSubClass;
 	uint8_t  bDeviceProtocol;

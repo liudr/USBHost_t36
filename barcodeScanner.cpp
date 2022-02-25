@@ -74,7 +74,7 @@ bool BarcodescannerController::claim(Device_t *dev, int type, const uint8_t *des
 	datapipe->callback_function = callback;
 	queue_Data_Transfer(datapipe, report, 8, this);
 
-    mk_setup(setup, 0x21, 10, 0, 0, 0); // 10=SET_IDLE
+    HID_SET_IDLE(setup);//mk_setup(setup, 0x21, 10, 0, 0, 0); // 10=SET_IDLE
 	queue_Control_Transfer(dev, &setup, NULL, this);
 	control_queued = true;
 	println("BarcodescannerController claimed this=", (uint32_t)this, HEX);
@@ -89,7 +89,7 @@ void BarcodescannerController::control(const Transfer_t *transfer)
 	uint32_t mesg = transfer->setup.word1;
 	println("  mesg = ", mesg, HEX);
 	if (mesg == 0x00B21 && transfer->length == 0) { // SET_PROTOCOL
-		mk_setup(setup, 0x21, 10, 0, 0, 0); // 10=SET_IDLE
+		HID_SET_IDLE(setup);//mk_setup(setup, 0x21, 10, 0, 0, 0); // 10=SET_IDLE
 		control_queued = true;
 		queue_Control_Transfer(device, &setup, NULL, this);
 	}
