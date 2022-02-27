@@ -31,6 +31,7 @@
 #endif
 #include "utility/imxrt_usbhs.h"
 #include "utility/msc.h"
+#include <USBHost_t36_constants.h>
 
 // Dear inquisitive reader, USB is a complex protocol defined with
 // very specific terminology.  To have any chance of understand this

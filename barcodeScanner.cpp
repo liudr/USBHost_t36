@@ -24,7 +24,7 @@
 #include <Arduino.h>
 #include <USBHost_t36.h>  // Read this header first for key info
 #include <usb_ch9.h>
-#include <USBHost_t36_constants.h>
+
 #define print   USBHost::print_
 #define println USBHost::println_
 
