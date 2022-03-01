@@ -227,7 +227,11 @@ void USBHost::enumeration(const Transfer_t *transfer)
 			if (enumbuf[1]) dev->enum_state = enum_req_str_prod;
 			else if (enumbuf[2]) dev->enum_state = enum_req_str_ser;
 			else dev->enum_state = enum_req_CONF9B;
-			break;
+/*             println("[0]",dev->strbuf->iStrings[0]);
+            println("[1]",dev->strbuf->iStrings[1]);
+            println("[2]",dev->strbuf->iStrings[2]);
+            println("Len", strlen((const char*)(dev->strbuf->buffer)));
+ */			break;
 		case enum_req_str_prod: // request Product string
 			len = sizeof(enumbuf) - 4;
 			mk_setup(enumsetup, 0x80, 6, 0x0300 | enumbuf[1], dev->LanguageID, len);
@@ -239,7 +243,11 @@ void USBHost::enumeration(const Transfer_t *transfer)
 			convertStringDescriptorToASCIIString(1, dev, transfer);
 			if (enumbuf[2]) dev->enum_state = enum_req_str_ser;
 			else dev->enum_state = enum_req_CONF9B;
-			break;
+/*             println("[0]",dev->strbuf->iStrings[0]);
+            println("[1]",dev->strbuf->iStrings[1]);
+            println("[2]",dev->strbuf->iStrings[2]);
+            println("Len", strlen((const char*)(dev->strbuf->buffer)));
+ */			break;
 		case enum_req_str_ser: // request Serial Number string
 			len = sizeof(enumbuf) - 4;
 			mk_setup(enumsetup, 0x80, 6, 0x0300 | enumbuf[2], dev->LanguageID, len);
@@ -250,7 +258,11 @@ void USBHost::enumeration(const Transfer_t *transfer)
 			print_string_descriptor("Serial Number: ", enumbuf + 4);
 			convertStringDescriptorToASCIIString(2, dev, transfer);
 			dev->enum_state = enum_req_CONF9B;
-			break;
+/*             println("[0]",dev->strbuf->iStrings[0]);
+            println("[1]",dev->strbuf->iStrings[1]);
+            println("[2]",dev->strbuf->iStrings[2]);
+            println("Len", strlen((const char*)(dev->strbuf->buffer)));
+ */			break;
 		case enum_req_CONF9B: // request first 9 bytes of config desc
 			mk_setup(enumsetup, 0x80, 6, 0x0200, 0, 9); // 6=GET_DESCRIPTOR
 			queue_Control_Transfer(dev, &enumsetup, enumbuf, NULL);

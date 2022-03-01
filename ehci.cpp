@@ -427,7 +427,7 @@ void USBHost::isr()
 			port_state = PORT_STATE_ACTIVE;
 			println("  end recovery");
 			//  HCSPARAMS  TTCTRL  page 1671
-			uint32_t speed = (USBHS_PORTSC1 >> 26) & 3;
+			uint32_t speed = (USBHS_PORTSC1 >> 26) & 3; // Bits 27-26 are "PSPD" port speed 0 FH, 1 LS, 2 HS, 3 Unknown
 			rootdev = new_Device(speed, 0, 0);
 		}
 	}
