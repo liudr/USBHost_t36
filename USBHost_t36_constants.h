@@ -22,6 +22,12 @@
 #define enum_dev_configured_claim           14  // device is now configured, call unused drivers to claim the device
 #define enum_nothing_to_do                  15  // control transfers for other stuff?
 
-#define HID_SET_IDLE(setup) (mk_setup(setup,USB_SETUP_HOST_TO_DEVICE|USB_SETUP_TYPE_CLASS|USB_SETUP_RECIPIENT_INTERFACE,HID_REQUEST_SET_IDLE,0,0,0))
-#define HID_SET_PROTOCOL(setup) (mk_setup(setup,USB_SETUP_HOST_TO_DEVICE|USB_SETUP_TYPE_CLASS|USB_SETUP_RECIPIENT_INTERFACE,HID_REQUEST_SET_PROTOCOL,BOOT_PROTOCOL,0,0))
+// HID class control requests
+#define HID_SET_IDLE(setup) (mk_setup(setup,bmREQ_HIDOUT,HID_REQUEST_SET_IDLE,0,0,0))
+#define HID_SET_PROTOCOL(setup) (mk_setup(setup,bmREQ_HIDOUT,HID_REQUEST_SET_PROTOCOL,BOOT_PROTOCOL,0,0))
+
+// HUB class control requests
+#define HUB_SET_PORT_FEATURE(setup,wV,wI,wL) (mk_setup(setup,bmREQ_SET_PORT_FEATURE,HID_REQUEST_SET_IDLE,wV,wI,wL))
+#define HUB_SET_PORT_FEATURE_POWER_ON(setup,port) (mk_setup(setup,bmREQ_SET_PORT_FEATURE,USB_REQUEST_SET_FEATURE,HUB_FEATURE_PORT_POWER,port,0))
+#define HUB_SET_PORT_FEATURE_POWER_OFF(setup,port) (mk_setup(setup,bmREQ_CLEAR_PORT_FEATURE,USB_REQUEST_CLEAR_FEATURE,HUB_FEATURE_PORT_POWER,port,0))
 #endif

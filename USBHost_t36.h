@@ -864,6 +864,35 @@ private:
 	bool control_queued;
 };
 
+class printer : public USBDriver {
+public:
+	printer(USBHost &host) { init(); }
+	printer(USBHost *host) { init(); }
+
+	operator bool() { return (device != nullptr); }
+    bool print_data(uint8_t* data, size_t len, uint8_t interface=0);
+protected:
+	virtual bool claim(Device_t *device, int type, const uint8_t *descriptors, uint32_t len);
+	virtual void control(const Transfer_t *transfer);
+	virtual void disconnect();
+	static void callback(const Transfer_t *transfer);
+	void new_data(const Transfer_t *transfer);
+	void init();
+
+private:
+	void update();
+	void (*printerReturnsDataFunction)(uint8_t * data);
+	Pipe_t *datapipe;
+	setup_t setup;
+	uint8_t report[9];
+	uint8_t prev_report[9];
+	Pipe_t mypipes[2] __attribute__ ((aligned(32)));
+	Transfer_t mytransfers[4] __attribute__ ((aligned(32)));
+	strbuf_t mystring_bufs[1];
+
+	bool control_queued;
+};
+
 class MouseController : public USBHIDInput, public BTHIDInput {
 public:
 	MouseController(USBHost &host) { init(); }
