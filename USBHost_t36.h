@@ -442,7 +442,10 @@ protected:
 	//   device has its vid&pid, class/subclass fields initialized
 	//   type is 0 for device level, 1 for interface level, 2 for IAD
 	//   descriptors points to the specific descriptor data
-    // (response to full conf desc request, minus the 9-byte conf desc)
+    // In case of a single interface, the full conf desc - 9-byte conf desc is given
+    // In case of multiple interfaces, each interface will trigger a claim call and the descriptors start with that interface.
+    // Eg. 2 interfaces. First interface claim call points to interface 0 and includes both interfaces (len=that)
+    // On the second claim call, descriptors points to interface 1 and only includes itself and EPs (len is less)
 	virtual bool claim(Device_t *device, int type, const uint8_t *descriptors, uint32_t len);
 
 	// When an unknown (not chapter 9) control transfer completes, this
@@ -865,10 +868,10 @@ private:
 	bool control_queued;
 };
 
-class printer : public USBDriver {
+class Printer : public USBDriver {
 public:
-	printer(USBHost &host) { init(); }
-	printer(USBHost *host) { init(); }
+	Printer(USBHost &host) { init(); }
+	Printer(USBHost *host) { init(); }
 
 	operator bool() { return (device != nullptr); }
     bool print_data(uint8_t* data, size_t len, uint8_t interface=0);

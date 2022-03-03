@@ -30,4 +30,7 @@
 #define HUB_SET_PORT_FEATURE(setup,wV,wI,wL) (mk_setup(setup,bmREQ_SET_PORT_FEATURE,HID_REQUEST_SET_IDLE,wV,wI,wL))
 #define HUB_SET_PORT_FEATURE_POWER_ON(setup,port) (mk_setup(setup,bmREQ_SET_PORT_FEATURE,USB_REQUEST_SET_FEATURE,HUB_FEATURE_PORT_POWER,port,0))
 #define HUB_SET_PORT_FEATURE_POWER_OFF(setup,port) (mk_setup(setup,bmREQ_CLEAR_PORT_FEATURE,USB_REQUEST_CLEAR_FEATURE,HUB_FEATURE_PORT_POWER,port,0))
+
+// Printer class control requests
+#define PRN_GET_DEVICE_ID(setup,conf_index, interface,len) (mk_setup(setup,bmREQUEST_TYPE_GET_DEVICE_ID,PRINTER_REQUEST_GET_DEVICE_ID,conf_index, interface, len))
 #endif

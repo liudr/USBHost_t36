@@ -28,7 +28,7 @@
 #define print   USBHost::print_
 #define println USBHost::println_
 
-void printer::init()
+void Printer::init()
 {
 	contribute_Pipes(mypipes, sizeof(mypipes)/sizeof(Pipe_t));
 	contribute_Transfers(mytransfers, sizeof(mytransfers)/sizeof(Transfer_t));
@@ -36,56 +36,54 @@ void printer::init()
 	driver_ready_for_device(this);
 }
 
-bool printer::claim(Device_t *dev, int type, const uint8_t *descriptors, uint32_t len)
+bool Printer::claim(Device_t *dev, int type, const uint8_t *descriptors, uint32_t len)
 {
+	uint8_t dev_id_buf[PRN_DEVICE_ID_MAX_LEN];
+	uint8_t intfNum		=	descriptors[INTR_DESC_offset_bInterfaceNumber];		// Find the interface of this claim call. Can use it to do interface-specific things like getting printer device ID or HID report descriptor of that interface.
+	uint8_t bClass		=	descriptors[INTR_DESC_offset_bInterfaceClass];		// Find class from interface
+	uint8_t bSubClass	=	descriptors[INTR_DESC_offset_bInterfaceSubClass];	// Find subclass from interface
+	uint8_t bProtocol	=	descriptors[INTR_DESC_offset_bInterfaceProtocol];	// Find protocol from interface
 	// Claim whole device. The descriptor is always the full conf desc without the 9-byte of conf desc, i.e. intf descs, endp descs, and any class-specifc descs that are included in the full conf desc, such as HIDD.
 	println("type = ",type, HEX);
-    print_hexbytes(descriptors, len);
+	print_hexbytes(descriptors, len);
 	if (len < INTR_DESCR_LEN+EP_DESCR_LEN) return false;    // Should have at least one interface and one end point
 
-    // Here we iterate through each interface and determine whether it is an appropriate printer interface. It must have the right class and subclass and possibly get printer ID to determine that it is NOT a fax machine.
+	// Here we iterate through each interface and determine whether it is an appropriate printer interface. It must have the right class and subclass and possibly get printer ID to determine that it is NOT a fax machine.
 
 	uint32_t numendpoint = descriptors[INTR_DESC_offset_bNumEndpoints];
 	if (numendpoint < 1) return false;
-	if (descriptors[INTR_DESC_offset_bInterfaceClass] != USB_CLASS_PRINTER) return false;
-	if (descriptors[INTR_DESC_offset_bInterfaceSubClass] != PRINTER_PRINTERS_SUBCLASS) return false;
-	if ((descriptors[INTR_DESC_offset_bInterfaceProtocol] != PRINTER_PROTOCOL_UNIDIRECTIONAL)||(descriptors[INTR_DESC_offset_bInterfaceProtocol] != PRINTER_PROTOCOL_BIDIRECTIONAL)) return false;
+	if (bClass != USB_CLASS_PRINTER) return false;
+	if (bSubClass != PRINTER_PRINTERS_SUBCLASS) return false;
+	if (!((bProtocol == PRINTER_PROTOCOL_UNIDIRECTIONAL)||(bProtocol == PRINTER_PROTOCOL_BIDIRECTIONAL)||(bProtocol == PRINTER_PROTOCOL_1284_4_COMPATIBLE_BIDIRECTIONAL))) return false;
     // Update from here on
-	if (descriptors[INTR_DESCR_LEN+DESC_offset_bLength] != HID_DESC_LEN) return false;
-	if (descriptors[INTR_DESCR_LEN+DESC_offset_bDescriptorType] != HID_DESCRIPTOR_HID) return false;
-	if (descriptors[INTR_DESCR_LEN+HID_DESC_LEN+DESC_offset_bLength] != EP_DESCR_LEN) return false;
-	if (descriptors[INTR_DESCR_LEN+HID_DESC_LEN+DESC_offset_bDescriptorType] != USB_DESCRIPTOR_ENDPOINT) return false; // endpoint descriptor
-	uint32_t EP_addr = descriptors[INTR_DESCR_LEN+HID_DESC_LEN+ENDP_DESC_offset_bEndpointAddress];
+	uint32_t EP_addr = descriptors[INTR_DESCR_LEN+ENDP_DESC_offset_bEndpointAddress];
+	/*
 	println("EP Addr = ", EP_addr, HEX);
-	if ((EP_addr & 0xF0) != USB_SETUP_DEVICE_TO_HOST) return false; // must be IN direction
+	if ((EP_addr & 0xF0) != USB_SETUP_HOST_TO_DEVICE) return false; // must be OUT direction
 	EP_addr &= 0x0F;
 	if (EP_addr == 0) return false;
-	if (descriptors[INTR_DESCR_LEN+HID_DESC_LEN+ENDP_DESC_offset_bmAttributes] != 3) return false; // must be interrupt type
-	uint32_t size = descriptors[INTR_DESCR_LEN+HID_DESC_LEN+ENDP_DESC_offset_wMaxPacketSize] | (descriptors[INTR_DESCR_LEN+HID_DESC_LEN+ENDP_DESC_offset_wMaxPacketSize+1] << 8);
+	if (descriptors[INTR_DESCR_LEN+ENDP_DESC_offset_bmAttributes] != USB_TRANSFER_TYPE_BULK) return false; // must be bulk type
+	uint32_t size = descriptors[INTR_DESCR_LEN+ENDP_DESC_offset_wMaxPacketSize] | (descriptors[INTR_DESCR_LEN+HID_DESC_LEN+ENDP_DESC_offset_wMaxPacketSize+1] << 8);
 	println("PK size = ", size);
 	if ((size < 8) || (size > 64)) {
 		return false; // Keyboard Boot Protocol is 8 bytes, but maybe others have longer... 
 	}
-#ifdef USBHS_KEYBOARD_INTERVAL 
-	uint32_t interval = USBHS_KEYBOARD_INTERVAL;
-#else
 	uint32_t interval = descriptors[INTR_DESCR_LEN+HID_DESC_LEN+ENDP_DESC_offset_bInterval];
-#endif
 	println("Interval= ", interval);
 	datapipe = new_Pipe(dev, 3, EP_addr, 1, 8, interval);
 	datapipe->callback_function = callback;
 	queue_Data_Transfer(datapipe, report, 8, this);
-
-    HID_SET_IDLE(setup);//mk_setup(setup, 0x21, 10, 0, 0, 0); // 10=SET_IDLE
-	queue_Control_Transfer(dev, &setup, NULL, this);
+*/
+    PRN_GET_DEVICE_ID(setup,0,intfNum,PRN_DEVICE_ID_MAX_LEN);
+	queue_Control_Transfer(dev, &setup, dev_id_buf, this);
 	control_queued = true;
-	println("printer claimed this=", (uint32_t)this, HEX);
+	//println("printer claimed this=", (uint32_t)this, HEX);
 	return true;
 }
 
-void printer::control(const Transfer_t *transfer)
+void Printer::control(const Transfer_t *transfer)
 {
-	println("printer control callback");
+	println("Printer control callback");
 	control_queued = false;
 	print_hexbytes(transfer->buffer, transfer->length);
 	uint32_t mesg = transfer->setup.word1;
@@ -97,27 +95,27 @@ void printer::control(const Transfer_t *transfer)
 	}
 }
 
-void printer::callback(const Transfer_t *transfer)
+void Printer::callback(const Transfer_t *transfer)
 {
 	//println("printer Callback (static)");
 	if (transfer->driver) {
-		((printer *)(transfer->driver))->new_data(transfer);
+		((Printer *)(transfer->driver))->new_data(transfer);
 	}
 }
 
-void printer::disconnect()
+void Printer::disconnect()
 {
 	// TODO: free resources
 }
 
 
-void printer::new_data(const Transfer_t *transfer)
+void Printer::new_data(const Transfer_t *transfer)
 {
 	println("printer data callback");
 	print("  Report: ");
 	print_hexbytes(transfer->buffer, 8);
 	if (printerReturnsDataFunction) {
-        printerReturnsDataFunction((char*)(transfer->buffer));
+        printerReturnsDataFunction((uint8_t*)(transfer->buffer));
 	}
 	memcpy(prev_report, report, 8);
 	queue_Data_Transfer(datapipe, report, 8, this);

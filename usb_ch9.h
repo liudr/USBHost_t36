@@ -355,12 +355,13 @@
  */
 
 // Printer Interface Class SubClass Codes
-#define PRINTER_PRINTERS_SUBCLASS					0x01
+#define PRINTER_PRINTERS_SUBCLASS					        0x01
 
 // PRINTER Interface Class Protocol Codes
-#define PRINTER_PROTOCOL_RESERVED					0x00
-#define PRINTER_PROTOCOL_UNIDIRECTIONAL				0x01
-#define PRINTER_PROTOCOL_BIDIRECTIONAL				0x02
+#define PRINTER_PROTOCOL_RESERVED					        0x00
+#define PRINTER_PROTOCOL_UNIDIRECTIONAL				        0x01
+#define PRINTER_PROTOCOL_BIDIRECTIONAL				        0x02
+#define PRINTER_PROTOCOL_1284_4_COMPATIBLE_BIDIRECTIONAL    0x03
 
 // Printer class Device Requests
 
@@ -376,6 +377,7 @@
 #define bmPRINTER_STATUS_PAPER_EMPTY			0b00100000
 #define bmPRINTER_STATUS_SELECT					0b00010000
 #define bmPRINTER_STATUS_NOT_ERROR				0b00001000
+#define PRN_DEVICE_ID_MAX_LEN                   256 // Only request up to this amount of device ID
 
 /***
  *     $$$$$$\    $$\                                     $$\               

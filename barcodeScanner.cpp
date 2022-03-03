@@ -38,7 +38,7 @@ void BarcodescannerController::init()
 
 bool BarcodescannerController::claim(Device_t *dev, int type, const uint8_t *descriptors, uint32_t len)
 {
-	// Claim whole device. The descriptor is always the interface descriptor followed by any HID desc and ENDP descs regardless the driver claiming device or interface.
+	// Claim whole device. The descriptor is always the full conf desc without the 9-byte of conf desc, i.e. intf descs, endp descs, and any class-specifc descs that are included in the full conf desc, such as HIDD.
 	if (type != claim_type_device) return false;
 	println("type = ",type, HEX);
     print_hexbytes(descriptors, len);
@@ -46,19 +46,19 @@ bool BarcodescannerController::claim(Device_t *dev, int type, const uint8_t *des
 
 	uint32_t numendpoint = descriptors[INTR_DESC_offset_bNumEndpoints];
 	if (numendpoint < 1) return false;
-	if (descriptors[INTR_DESC_offset_bInterfaceClass] != USB_CLASS_HID) return false; // bInterfaceClass, 3 = HID
-	if (descriptors[INTR_DESC_offset_bInterfaceSubClass] != BOOT_INTF_SUBCLASS) return false; // bInterfaceSubClass, 1 = Boot Device
-	if (descriptors[INTR_DESC_offset_bInterfaceProtocol] != RPT_PROTOCOL) return false; // bInterfaceProtocol, 1 = Keyboard
+	if (descriptors[INTR_DESC_offset_bInterfaceClass] != USB_CLASS_HID) return false;
+	if (descriptors[INTR_DESC_offset_bInterfaceSubClass] != BOOT_INTF_SUBCLASS) return false;
+	if (descriptors[INTR_DESC_offset_bInterfaceProtocol] != RPT_PROTOCOL) return false;
 	if (descriptors[INTR_DESCR_LEN+DESC_offset_bLength] != HID_DESC_LEN) return false;
-	if (descriptors[INTR_DESCR_LEN+DESC_offset_bDescriptorType] != HID_DESCRIPTOR_HID) return false; // HID descriptor (ignored, Boot Protocol)
+	if (descriptors[INTR_DESCR_LEN+DESC_offset_bDescriptorType] != HID_DESCRIPTOR_HID) return false;
 	if (descriptors[INTR_DESCR_LEN+HID_DESC_LEN+DESC_offset_bLength] != EP_DESCR_LEN) return false;
-	if (descriptors[INTR_DESCR_LEN+HID_DESC_LEN+DESC_offset_bDescriptorType] != USB_DESCRIPTOR_ENDPOINT) return false; // endpoint descriptor
+	if (descriptors[INTR_DESCR_LEN+HID_DESC_LEN+DESC_offset_bDescriptorType] != USB_DESCRIPTOR_ENDPOINT) return false;
 	uint32_t EP_addr = descriptors[INTR_DESCR_LEN+HID_DESC_LEN+ENDP_DESC_offset_bEndpointAddress];
 	println("EP Addr = ", EP_addr, HEX);
 	if ((EP_addr & 0xF0) != USB_SETUP_DEVICE_TO_HOST) return false; // must be IN direction
 	EP_addr &= 0x0F;
 	if (EP_addr == 0) return false;
-	if (descriptors[INTR_DESCR_LEN+HID_DESC_LEN+ENDP_DESC_offset_bmAttributes] != 3) return false; // must be interrupt type
+	if (descriptors[INTR_DESCR_LEN+HID_DESC_LEN+ENDP_DESC_offset_bmAttributes] != USB_TRANSFER_TYPE_INTERRUPT) return false; // must be interrupt type
 	uint32_t size = descriptors[INTR_DESCR_LEN+HID_DESC_LEN+ENDP_DESC_offset_wMaxPacketSize] | (descriptors[INTR_DESCR_LEN+HID_DESC_LEN+ENDP_DESC_offset_wMaxPacketSize+1] << 8);
 	println("PK size = ", size);
 	if ((size < 8) || (size > 64)) {
