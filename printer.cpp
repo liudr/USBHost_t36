@@ -38,20 +38,21 @@ void printer::init()
 
 bool printer::claim(Device_t *dev, int type, const uint8_t *descriptors, uint32_t len)
 {
-	// Claim whole device. The descriptor is always the interface descriptor followed by any HID desc and ENDP descs regardless the driver claiming device or interface.
-	if (type != claim_type_device) return false;
+	// Claim whole device. The descriptor is always the full conf desc without the 9-byte of conf desc, i.e. intf descs, endp descs, and any class-specifc descs that are included in the full conf desc, such as HIDD.
 	println("type = ",type, HEX);
     print_hexbytes(descriptors, len);
-	if (len < INTR_DESCR_LEN+HID_DESC_LEN+EP_DESCR_LEN) return false;
+	if (len < INTR_DESCR_LEN+EP_DESCR_LEN) return false;    // Should have at least one interface and one end point
+
+    // Here we iterate through each interface and determine whether it is an appropriate printer interface. It must have the right class and subclass and possibly get printer ID to determine that it is NOT a fax machine.
 
 	uint32_t numendpoint = descriptors[INTR_DESC_offset_bNumEndpoints];
 	if (numendpoint < 1) return false;
-	if (descriptors[INTR_DESC_offset_bInterfaceClass] != USB_CLASS_PRINTER) return false; // bInterfaceClass, 3 = HID
-	if (descriptors[INTR_DESC_offset_bInterfaceSubClass] != PRINTER_PRINTERS_SUBCLASS) return false; // bInterfaceSubClass, 1 = Boot Device
-	if ((descriptors[INTR_DESC_offset_bInterfaceProtocol] != PRINTER_PROTOCOL_UNIDIRECTIONAL)||(descriptors[INTR_DESC_offset_bInterfaceProtocol] != PRINTER_PROTOCOL_BIDIRECTIONAL)) return false; // bInterfaceProtocol, 1 = Keyboard
+	if (descriptors[INTR_DESC_offset_bInterfaceClass] != USB_CLASS_PRINTER) return false;
+	if (descriptors[INTR_DESC_offset_bInterfaceSubClass] != PRINTER_PRINTERS_SUBCLASS) return false;
+	if ((descriptors[INTR_DESC_offset_bInterfaceProtocol] != PRINTER_PROTOCOL_UNIDIRECTIONAL)||(descriptors[INTR_DESC_offset_bInterfaceProtocol] != PRINTER_PROTOCOL_BIDIRECTIONAL)) return false;
     // Update from here on
 	if (descriptors[INTR_DESCR_LEN+DESC_offset_bLength] != HID_DESC_LEN) return false;
-	if (descriptors[INTR_DESCR_LEN+DESC_offset_bDescriptorType] != HID_DESCRIPTOR_HID) return false; // HID descriptor (ignored, Boot Protocol)
+	if (descriptors[INTR_DESCR_LEN+DESC_offset_bDescriptorType] != HID_DESCRIPTOR_HID) return false;
 	if (descriptors[INTR_DESCR_LEN+HID_DESC_LEN+DESC_offset_bLength] != EP_DESCR_LEN) return false;
 	if (descriptors[INTR_DESCR_LEN+HID_DESC_LEN+DESC_offset_bDescriptorType] != USB_DESCRIPTOR_ENDPOINT) return false; // endpoint descriptor
 	uint32_t EP_addr = descriptors[INTR_DESCR_LEN+HID_DESC_LEN+ENDP_DESC_offset_bEndpointAddress];

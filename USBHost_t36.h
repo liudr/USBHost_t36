@@ -442,6 +442,7 @@ protected:
 	//   device has its vid&pid, class/subclass fields initialized
 	//   type is 0 for device level, 1 for interface level, 2 for IAD
 	//   descriptors points to the specific descriptor data
+    // (response to full conf desc request, minus the 9-byte conf desc)
 	virtual bool claim(Device_t *device, int type, const uint8_t *descriptors, uint32_t len);
 
 	// When an unknown (not chapter 9) control transfer completes, this
