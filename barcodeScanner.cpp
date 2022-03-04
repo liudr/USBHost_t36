@@ -77,13 +77,13 @@ bool BarcodescannerController::claim(Device_t *dev, int type, const uint8_t *des
     HID_SET_IDLE(setup);//mk_setup(setup, 0x21, 10, 0, 0, 0); // 10=SET_IDLE
 	queue_Control_Transfer(dev, &setup, NULL, this);
 	control_queued = true;
-	println("BarcodescannerController claimed this=", (uint32_t)this, HEX);
+	println("BSC claimed this=", (uint32_t)this, HEX);
 	return true;
 }
 
 void BarcodescannerController::control(const Transfer_t *transfer)
 {
-	println("BarcodescannerController control callback");
+	println("BSC CTRL CB");
 	control_queued = false;
 	print_hexbytes(transfer->buffer, transfer->length);
 	uint32_t mesg = transfer->setup.word1;

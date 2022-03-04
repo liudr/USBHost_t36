@@ -200,11 +200,11 @@ void USBHost::enumeration(const Transfer_t *transfer)
 		case enum_req_langID: // request Language ID
 			len = sizeof(enumbuf) - 4;
 			mk_setup(enumsetup, 0x80, 6, 0x0300, 0, len); // 6=GET_DESCRIPTOR
-			queue_Control_Transfer(dev, &enumsetup, enumbuf + 4, NULL);
+			queue_Control_Transfer(dev, &enumsetup, enumbuf + 4, NULL);	// Start using enumbuf[4] and later. enumbuf[0] to [2] have string indices. enumbuf[3] has part of bcdUSB (probably discarded)
 			dev->enum_state = enum_got_langID_parsing;
 			return;
 		case enum_got_langID_parsing: // parse Language ID
-			if (enumbuf[4] < 4 || enumbuf[5] != 3) {
+			if (enumbuf[4] < 4 || enumbuf[5] != 3) {	// 04 03 is characteristic of langID, 4 bytes long, being string desc (3)
 				dev->enum_state = enum_req_CONF9B;
 			} else {
 				dev->LanguageID = enumbuf[6] | (enumbuf[7] << 8);

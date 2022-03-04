@@ -56,8 +56,8 @@ bool Printer::claim(Device_t *dev, int type, const uint8_t *descriptors, uint32_
 	if (bSubClass != PRINTER_PRINTERS_SUBCLASS) return false;
 	if (!((bProtocol == PRINTER_PROTOCOL_UNIDIRECTIONAL)||(bProtocol == PRINTER_PROTOCOL_BIDIRECTIONAL)||(bProtocol == PRINTER_PROTOCOL_1284_4_COMPATIBLE_BIDIRECTIONAL))) return false;
     // Update from here on
-	uint32_t EP_addr = descriptors[INTR_DESCR_LEN+ENDP_DESC_offset_bEndpointAddress];
 	/*
+	uint32_t EP_addr = descriptors[INTR_DESCR_LEN+ENDP_DESC_offset_bEndpointAddress];
 	println("EP Addr = ", EP_addr, HEX);
 	if ((EP_addr & 0xF0) != USB_SETUP_HOST_TO_DEVICE) return false; // must be OUT direction
 	EP_addr &= 0x0F;
@@ -83,12 +83,13 @@ bool Printer::claim(Device_t *dev, int type, const uint8_t *descriptors, uint32_
 
 void Printer::control(const Transfer_t *transfer)
 {
-	println("Printer control callback");
+	println("PRN CTRL CB");
 	control_queued = false;
+    println("Len:",transfer->length);
 	print_hexbytes(transfer->buffer, transfer->length);
 	uint32_t mesg = transfer->setup.word1;
 	println("  mesg = ", mesg, HEX);
-	if (mesg == 0x00B21 && transfer->length == 0) { // SET_PROTOCOL
+	if (mesg == 0x00B21 && transfer->length == 0) {
 		HID_SET_IDLE(setup);//mk_setup(setup, 0x21, 10, 0, 0, 0); // 10=SET_IDLE
 		control_queued = true;
 		queue_Control_Transfer(device, &setup, NULL, this);
