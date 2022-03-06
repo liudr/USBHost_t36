@@ -1,6 +1,21 @@
 #ifndef _USBHost_t36_constants_h_
 #define _USBHost_t36_constants_h_
 #include <usb_ch9.h>
+
+// IMXRT constants
+#define bmTDToken_DataToogle                (1<<31) // 0x8000 0000
+#define bmTDToken_InterruptOnComplete		(1<<15) // 0x8000
+#define bmTDToken_PID   					(3<<8)  // 0x0300 00 OUT Token generates token, 01 IN Token generates token, 10 SETUP Token generates token
+#define bmTDToken_Active					(1<<7)  // 0x80
+#define bmTDToken_Halted					(1<<6)  // 0x40
+#define bmTDToken_DataBufferError			(1<<5)  // 0x20
+#define bmTDToken_BabbleDetected			(1<<4)  // 0x10
+#define bmTDToken_TransactionError			(1<<3)  // 0x08
+#define bmTDToken_MissedMicroFrame			(1<<2)  // 0x04
+#define bmTDToken_SplitTransactionState		(1<<1)  // 0x02
+#define bmTDToken_PingState_ERR				1
+
+// Library states and status constants
 #define claim_type_device   0
 #define claim_type_interface    1
 #define claim_type_IAD_descriptors  2
@@ -22,9 +37,13 @@
 #define enum_dev_configured_claim           14  // device is now configured, call unused drivers to claim the device
 #define enum_nothing_to_do                  15  // control transfers for other stuff?
 
-// HID class control requests
-#define HID_SET_IDLE(setup) (mk_setup(setup,bmREQ_HIDOUT,HID_REQUEST_SET_IDLE,0,0,0))
-#define HID_SET_PROTOCOL(setup) (mk_setup(setup,bmREQ_HIDOUT,HID_REQUEST_SET_PROTOCOL,BOOT_PROTOCOL,0,0))
+// HID class control requests and messages
+#define mk_HID_SET_IDLE(setup) (mk_setup(setup,bmREQ_TYPE_SET_IDLE,HID_REQUEST_SET_IDLE,0,0,0))
+#define mk_HID_SET_PROTOCOL(setup) (mk_setup(setup,bmREQ_TYPE_SET_PROTOCOL,HID_REQUEST_SET_PROTOCOL,BOOT_PROTOCOL,0,0))
+#define mk_HID_GET_REPORT_DESC(setup,interface,len) (mk_setup(setup,bmREQ_TYPE_GET_HIDR_DESC,HID_REQUEST_GET_HIDR_DESC,HID_DESCRIPTOR_REPORT<<8,interface,len))
+
+#define HID_SET_IDLE_MSG (bmREQ_TYPE_SET_IDLE+(HID_REQUEST_SET_IDLE<<8))
+#define HID_GET_REPORT_DESC_MSG (bmREQ_TYPE_GET_HIDR_DESC+(HID_REQUEST_GET_HIDR_DESC<<8U)+(HID_DESCRIPTOR_REPORT<<24U))
 
 // HUB class control requests
 #define HUB_SET_PORT_FEATURE(setup,wV,wI,wL) (mk_setup(setup,bmREQ_SET_PORT_FEATURE,USB_REQUEST_SET_FEATURE,wV,wI,wL))

@@ -38,7 +38,6 @@ void Printer::init()
 
 bool Printer::claim(Device_t *dev, int type, const uint8_t *descriptors, uint32_t len)
 {
-	uint8_t dev_id_buf[PRN_DEVICE_ID_MAX_LEN];
 	uint8_t intfNum		=	descriptors[INTR_DESC_offset_bInterfaceNumber];		// Find the interface of this claim call. Can use it to do interface-specific things like getting printer device ID or HID report descriptor of that interface.
 	uint8_t bClass		=	descriptors[INTR_DESC_offset_bInterfaceClass];		// Find class from interface
 	uint8_t bSubClass	=	descriptors[INTR_DESC_offset_bInterfaceSubClass];	// Find subclass from interface
@@ -83,14 +82,15 @@ bool Printer::claim(Device_t *dev, int type, const uint8_t *descriptors, uint32_
 
 void Printer::control(const Transfer_t *transfer)
 {
-	println("PRN CTRL CB");
+    uint32_t len = transfer->length - (((transfer->qtd.token) >> 16) & 0x7FFF);
+	println("PRN CTRL CB. qh.token:", transfer->qtd.token, HEX);
 	control_queued = false;
-    println("Len:",transfer->length);
-	print_hexbytes(transfer->buffer, transfer->length);
+    println("Len:",len);
+	print_hexbytes(transfer->buffer, len);
 	uint32_t mesg = transfer->setup.word1;
 	println("  mesg = ", mesg, HEX);
 	if (mesg == 0x00B21 && transfer->length == 0) {
-		HID_SET_IDLE(setup);//mk_setup(setup, 0x21, 10, 0, 0, 0); // 10=SET_IDLE
+		mk_HID_SET_IDLE(setup);//mk_setup(setup, 0x21, 10, 0, 0, 0); // 10=SET_IDLE
 		control_queued = true;
 		queue_Control_Transfer(device, &setup, NULL, this);
 	}

@@ -796,11 +796,11 @@ bool USBHost::queue_Transfer(Pipe_t *pipe, Transfer_t *transfer)
 {
 	// find halt qTD
 	Transfer_t *halt = (Transfer_t *)(pipe->qh.next);
-	while (!(halt->qtd.token & 0x40)) halt = (Transfer_t *)(halt->qtd.next);
+	while (!(halt->qtd.token & 0x40)) halt = (Transfer_t *)(halt->qtd.next);	// bmTDToken_Halted
 	// transfer's token
 	uint32_t token = transfer->qtd.token;
 	// transfer becomes new halt qTD
-	transfer->qtd.token = 0x40;
+	transfer->qtd.token = 0x40;	// bmTDToken_Halted
 	// copy transfer non-token fields to halt
 	halt->qtd.next = transfer->qtd.next;
 	halt->qtd.alt_next = transfer->qtd.alt_next;
@@ -851,9 +851,9 @@ bool USBHost::followup_Transfer(Transfer_t *transfer)
 	//print("  Followup ", (uint32_t)transfer, HEX);
 	//println("    token=", transfer->qtd.token, HEX);
 
-	if (!(transfer->qtd.token & 0x80)) {
+	if (!(transfer->qtd.token & 0x80)) {	// bmTDToken_Active
 		// TODO: check error status
-		if (transfer->qtd.token & 0x8000) {
+		if (transfer->qtd.token & 0x8000) {	// bmTDToken_DataToogle
 			// this transfer caused an interrupt
 			if (transfer->pipe->callback_function) {
 				// do the callback

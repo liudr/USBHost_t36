@@ -38,28 +38,34 @@ void BarcodescannerController::init()
 
 bool BarcodescannerController::claim(Device_t *dev, int type, const uint8_t *descriptors, uint32_t len)
 {
+    USB_INTERFACE_DESCRIPTOR* intDesc;
+    USB_HID_DESCRIPTOR* hidDesc;
+    USB_ENDPOINT_DESCRIPTOR* epDesc;
 	// Claim whole device. The descriptor is always the full conf desc without the 9-byte of conf desc, i.e. intf descs, endp descs, and any class-specifc descs that are included in the full conf desc, such as HIDD.
 	if (type != claim_type_device) return false;
 	println("type = ",type, HEX);
     print_hexbytes(descriptors, len);
 	if (len < INTR_DESCR_LEN+HID_DESC_LEN+EP_DESCR_LEN) return false;
-
-	uint32_t numendpoint = descriptors[INTR_DESC_offset_bNumEndpoints];
+    intDesc=(USB_INTERFACE_DESCRIPTOR*)descriptors;
+    hidDesc=(USB_HID_DESCRIPTOR*)(descriptors+INTR_DESCR_LEN);
+    epDesc=(USB_ENDPOINT_DESCRIPTOR*)(descriptors+INTR_DESCR_LEN+HID_DESC_LEN);
+	uint32_t numendpoint = intDesc->bNumEndpoints;
 	if (numendpoint < 1) return false;
-	if (descriptors[INTR_DESC_offset_bInterfaceClass] != USB_CLASS_HID) return false;
-	if (descriptors[INTR_DESC_offset_bInterfaceSubClass] != BOOT_INTF_SUBCLASS) return false;
-	if (descriptors[INTR_DESC_offset_bInterfaceProtocol] != RPT_PROTOCOL) return false;
-	if (descriptors[INTR_DESCR_LEN+DESC_offset_bLength] != HID_DESC_LEN) return false;
-	if (descriptors[INTR_DESCR_LEN+DESC_offset_bDescriptorType] != HID_DESCRIPTOR_HID) return false;
-	if (descriptors[INTR_DESCR_LEN+HID_DESC_LEN+DESC_offset_bLength] != EP_DESCR_LEN) return false;
-	if (descriptors[INTR_DESCR_LEN+HID_DESC_LEN+DESC_offset_bDescriptorType] != USB_DESCRIPTOR_ENDPOINT) return false;
-	uint32_t EP_addr = descriptors[INTR_DESCR_LEN+HID_DESC_LEN+ENDP_DESC_offset_bEndpointAddress];
+	if (intDesc->bInterfaceClass != USB_CLASS_HID) return false;
+	if (intDesc->bInterfaceSubClass != BOOT_INTF_SUBCLASS) return false;
+	if (intDesc->bInterfaceProtocol != RPT_PROTOCOL) return false;
+	if (hidDesc->bLength != HID_DESC_LEN) return false;
+	if (hidDesc->bDescriptorType != HID_DESCRIPTOR_HID) return false;
+	if (epDesc->bLength != EP_DESCR_LEN) return false;
+	if (epDesc->bDescriptorType != USB_DESCRIPTOR_ENDPOINT) return false;
+	uint32_t EP_addr = epDesc->bEndpointAddress;    // Don't mask the dir bit yet.
 	println("EP Addr = ", EP_addr, HEX);
 	if ((EP_addr & 0xF0) != USB_SETUP_DEVICE_TO_HOST) return false; // must be IN direction
-	EP_addr &= 0x0F;
+	EP_addr &= 0x0F;    // Now mask the dir bit
 	if (EP_addr == 0) return false;
-	if (descriptors[INTR_DESCR_LEN+HID_DESC_LEN+ENDP_DESC_offset_bmAttributes] != USB_TRANSFER_TYPE_INTERRUPT) return false; // must be interrupt type
-	uint32_t size = descriptors[INTR_DESCR_LEN+HID_DESC_LEN+ENDP_DESC_offset_wMaxPacketSize] | (descriptors[INTR_DESCR_LEN+HID_DESC_LEN+ENDP_DESC_offset_wMaxPacketSize+1] << 8);
+	if (epDesc->bmAttributes != USB_TRANSFER_TYPE_INTERRUPT) return false; // must be interrupt type
+    wDescriptorLength=hidDesc->wDescriptorLength;
+	uint32_t size = epDesc->wMaxPacketSize;
 	println("PK size = ", size);
 	if ((size < 8) || (size > 64)) {
 		return false; // Keyboard Boot Protocol is 8 bytes, but maybe others have longer... 
@@ -67,14 +73,14 @@ bool BarcodescannerController::claim(Device_t *dev, int type, const uint8_t *des
 #ifdef USBHS_KEYBOARD_INTERVAL 
 	uint32_t interval = USBHS_KEYBOARD_INTERVAL;
 #else
-	uint32_t interval = descriptors[INTR_DESCR_LEN+HID_DESC_LEN+ENDP_DESC_offset_bInterval];
+	uint32_t interval = epDesc->bInterval;
 #endif
 	println("Interval= ", interval);
 	datapipe = new_Pipe(dev, 3, EP_addr, 1, 8, interval);
 	datapipe->callback_function = callback;
 	queue_Data_Transfer(datapipe, report, 8, this);
 
-    HID_SET_IDLE(setup);//mk_setup(setup, 0x21, 10, 0, 0, 0); // 10=SET_IDLE
+    mk_HID_SET_IDLE(setup);//mk_setup(setup, 0x21, 10, 0, 0, 0); // 10=SET_IDLE
 	queue_Control_Transfer(dev, &setup, NULL, this);
 	control_queued = true;
 	println("BSC claimed this=", (uint32_t)this, HEX);
@@ -83,15 +89,25 @@ bool BarcodescannerController::claim(Device_t *dev, int type, const uint8_t *des
 
 void BarcodescannerController::control(const Transfer_t *transfer)
 {
-	println("BSC CTRL CB");
-	control_queued = false;
-	print_hexbytes(transfer->buffer, transfer->length);
+    uint32_t len = transfer->length - (((transfer->qtd.token) >> 16) & 0x7FFF);
 	uint32_t mesg = transfer->setup.word1;
-	println("  mesg = ", mesg, HEX);
+	println("BSC CTRL CB. qh.token:", uint32_t(transfer->qtd.token), HEX);
+	println("HIDR:", (bmREQ_TYPE_GET_HIDR_DESC+(HID_REQUEST_GET_HIDR_DESC<<8U)+(HID_DESCRIPTOR_REPORT<<24U)), HEX);
+	println("mesg:", mesg, HEX);
+	control_queued = false;
 	if (mesg == 0x00B21 && transfer->length == 0) { // SET_PROTOCOL
-		HID_SET_IDLE(setup);//mk_setup(setup, 0x21, 10, 0, 0, 0); // 10=SET_IDLE
+		mk_HID_SET_IDLE(setup);//mk_setup(setup, 0x21, 10, 0, 0, 0); // 10=SET_IDLE
 		control_queued = true;
 		queue_Control_Transfer(device, &setup, NULL, this);
+	}
+	else if (mesg == HID_SET_IDLE_MSG) { // SET_IDLE
+		mk_HID_GET_REPORT_DESC(setup,0,wDescriptorLength);
+		control_queued = true;
+		queue_Control_Transfer(device, &setup, hid_rep_desc_buf, this);
+	}
+	else if (mesg == HID_GET_REPORT_DESC_MSG) { // GET_HIDR_DESC
+        println("Len:",len);
+        print_hexbytes(transfer->buffer, len);
 	}
 }
 
@@ -121,12 +137,14 @@ void keyReleased() __attribute__ ((weak, alias("__keyboardControllerEmptyCallbac
 
 void BarcodescannerController::new_data(const Transfer_t *transfer)
 {
-	println("BarcodescannerController data callback");
-	print("  Report: ");
-	print_hexbytes(transfer->buffer, 8);
+    uint32_t len = transfer->length - (((transfer->qtd.token) >> 16) & 0x7FFF);
+	println("BSC DATA CB. qh.token:", uint32_t(transfer->qtd.token), HEX);
+    println("Len:",len);
+	print("Report:");
+	print_hexbytes(transfer->buffer, len);
 	if (codeScannedFunction) {
         codeScannedFunction((char*)(transfer->buffer));
 	}
-	memcpy(prev_report, report, 8);
+	memcpy(prev_report, report, len);
 	queue_Data_Transfer(datapipe, report, 8, this);
 }

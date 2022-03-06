@@ -22,6 +22,7 @@
 #define INTR_DESC_offset_bInterfaceProtocol   7
 #define INTR_DESC_offset_iInterface           8
 
+#define HIDR_DESC_offset_wDescriptorLength		7
 // Endpoint descriptor
 #define ENDP_DESC_offset_bEndpointAddress       2
 #define ENDP_DESC_offset_bmAttributes           3
@@ -213,10 +214,16 @@
 #define HID_PROTOCOL_KEYBOARD		0x01
 #define HID_PROTOCOL_MOUSE			0x02
 
-/* HID requests */
+// HID requests
 #define bmREQ_HIDOUT        (USB_SETUP_HOST_TO_DEVICE|USB_SETUP_TYPE_CLASS|USB_SETUP_RECIPIENT_INTERFACE)
 #define bmREQ_HIDIN         (USB_SETUP_DEVICE_TO_HOST|USB_SETUP_TYPE_CLASS|USB_SETUP_RECIPIENT_INTERFACE) 
-#define bmREQ_HIDREPORT     (USB_SETUP_DEVICE_TO_HOST|USB_SETUP_TYPE_STANDARD|USB_SETUP_RECIPIENT_INTERFACE)
+
+#define bmREQ_TYPE_GET_HIDR_DESC			(USB_SETUP_DEVICE_TO_HOST|USB_SETUP_TYPE_STANDARD|USB_SETUP_RECIPIENT_INTERFACE) // 0xA1 //Get ASCII ID with compatible print modes
+#define bmREQ_TYPE_SET_IDLE					bmREQ_HIDOUT
+#define bmREQ_TYPE_SET_PROTOCOL				bmREQ_HIDOUT
+#define HID_REQUEST_GET_HIDR_DESC			USB_REQUEST_GET_DESCRIPTOR //Get HID report descriptor is a standard request sent to the interface instead of to the device
+
+#define HID_REPORT_DESC_MAX_LEN     512
 
 /***
  *    $$\   $$\       $$\   $$\       $$$$$$$\  

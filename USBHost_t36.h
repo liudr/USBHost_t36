@@ -853,6 +853,8 @@ protected:
 	static void callback(const Transfer_t *transfer);
 	void new_data(const Transfer_t *transfer);
 	void init();
+    uint16_t wDescriptorLength;
+	uint8_t hid_rep_desc_buf[HID_REPORT_DESC_MAX_LEN];
 
 private:
 	void update();
@@ -882,6 +884,7 @@ protected:
 	static void callback(const Transfer_t *transfer);
 	void new_data(const Transfer_t *transfer);
 	void init();
+	uint8_t dev_id_buf[PRN_DEVICE_ID_MAX_LEN];
 
 private:
 	void update();
