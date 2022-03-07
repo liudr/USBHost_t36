@@ -20,6 +20,14 @@
 #define claim_type_interface    1
 #define claim_type_IAD_descriptors  2
 
+#define pipe_type_control	0
+#define pipe_type_bulk		2
+#define pipe_type_interrupt	3
+
+#define pipe_direction_OUT	0
+#define pipe_direction_IN	1
+#define pipe_direction_ctrl	2	// Not care value
+
 #define enum_got_DEV8B_setMaxPkt_setAddr    0   // read 8 bytes of device desc, set max packet, and send set address
 #define enum_addrSet_req_DEV18B             1   // request all 18 bytes of device descriptor
 #define enum_got_DEV18B_parse_dev           2   // parse 18 device desc bytes into the dev from the Transfer_t

@@ -30,18 +30,22 @@
 
 void Printer::init()
 {
+	ready=0;
 	contribute_Pipes(mypipes, sizeof(mypipes)/sizeof(Pipe_t));
 	contribute_Transfers(mytransfers, sizeof(mytransfers)/sizeof(Transfer_t));
 	contribute_String_Buffers(mystring_bufs, sizeof(mystring_bufs)/sizeof(strbuf_t));
 	driver_ready_for_device(this);
+	printer_device_id=(uint8_t*)malloc(PRN_DEVICE_ID_MAX_LEN);
 }
 
 bool Printer::claim(Device_t *dev, int type, const uint8_t *descriptors, uint32_t len)
 {
-	uint8_t intfNum		=	descriptors[INTR_DESC_offset_bInterfaceNumber];		// Find the interface of this claim call. Can use it to do interface-specific things like getting printer device ID or HID report descriptor of that interface.
-	uint8_t bClass		=	descriptors[INTR_DESC_offset_bInterfaceClass];		// Find class from interface
-	uint8_t bSubClass	=	descriptors[INTR_DESC_offset_bInterfaceSubClass];	// Find subclass from interface
-	uint8_t bProtocol	=	descriptors[INTR_DESC_offset_bInterfaceProtocol];	// Find protocol from interface
+    USB_INTERFACE_DESCRIPTOR* intDesc;
+    USB_ENDPOINT_DESCRIPTOR* epDesc;
+    intDesc=(USB_INTERFACE_DESCRIPTOR*)descriptors;
+    epDesc=(USB_ENDPOINT_DESCRIPTOR*)(descriptors+INTR_DESCR_LEN);
+
+	intfNum		=	intDesc->bInterfaceNumber;
 	// Claim whole device. The descriptor is always the full conf desc without the 9-byte of conf desc, i.e. intf descs, endp descs, and any class-specifc descs that are included in the full conf desc, such as HIDD.
 	println("type = ",type, HEX);
 	print_hexbytes(descriptors, len);
@@ -51,32 +55,42 @@ bool Printer::claim(Device_t *dev, int type, const uint8_t *descriptors, uint32_
 
 	uint32_t numendpoint = descriptors[INTR_DESC_offset_bNumEndpoints];
 	if (numendpoint < 1) return false;
-	if (bClass != USB_CLASS_PRINTER) return false;
-	if (bSubClass != PRINTER_PRINTERS_SUBCLASS) return false;
-	if (!((bProtocol == PRINTER_PROTOCOL_UNIDIRECTIONAL)||(bProtocol == PRINTER_PROTOCOL_BIDIRECTIONAL)||(bProtocol == PRINTER_PROTOCOL_1284_4_COMPATIBLE_BIDIRECTIONAL))) return false;
+	if (intDesc->bInterfaceClass != USB_CLASS_PRINTER) return false;
+	if (intDesc->bInterfaceSubClass != PRINTER_PRINTERS_SUBCLASS) return false;
+	if (!((intDesc->bInterfaceProtocol == PRINTER_PROTOCOL_UNIDIRECTIONAL)||(intDesc->bInterfaceProtocol == PRINTER_PROTOCOL_BIDIRECTIONAL)||(intDesc->bInterfaceProtocol == PRINTER_PROTOCOL_1284_4_COMPATIBLE_BIDIRECTIONAL))) return false;
     // Update from here on
-	/*
-	uint32_t EP_addr = descriptors[INTR_DESCR_LEN+ENDP_DESC_offset_bEndpointAddress];
-	println("EP Addr = ", EP_addr, HEX);
-	if ((EP_addr & 0xF0) != USB_SETUP_HOST_TO_DEVICE) return false; // must be OUT direction
-	EP_addr &= 0x0F;
-	if (EP_addr == 0) return false;
-	if (descriptors[INTR_DESCR_LEN+ENDP_DESC_offset_bmAttributes] != USB_TRANSFER_TYPE_BULK) return false; // must be bulk type
-	uint32_t size = descriptors[INTR_DESCR_LEN+ENDP_DESC_offset_wMaxPacketSize] | (descriptors[INTR_DESCR_LEN+HID_DESC_LEN+ENDP_DESC_offset_wMaxPacketSize+1] << 8);
-	println("PK size = ", size);
-	if ((size < 8) || (size > 64)) {
-		return false; // Keyboard Boot Protocol is 8 bytes, but maybe others have longer... 
+	println("EPAddr:", (epDesc->bEndpointAddress)&0x0F, HEX);
+	if ((epDesc->bEndpointAddress)&USB_SETUP_DEVICE_TO_HOST)	// First EP is IN, then OUT
+	{
+		EPAddrIN=(epDesc->bEndpointAddress)&0x0F;
+		EPINwMaxPacketSize=epDesc->wMaxPacketSize;
+		intervalIN=epDesc->bInterval;
+		epDesc++;
+		EPAddrOUT=(epDesc->bEndpointAddress)&0x0F;
+		EPOUTwMaxPacketSize=epDesc->wMaxPacketSize;
+		intervalOUT=epDesc->bInterval;
 	}
-	uint32_t interval = descriptors[INTR_DESCR_LEN+HID_DESC_LEN+ENDP_DESC_offset_bInterval];
-	println("Interval= ", interval);
-	datapipe = new_Pipe(dev, 3, EP_addr, 1, 8, interval);
-	datapipe->callback_function = callback;
+	else	// First EP is OUT, then IN
+	{
+		EPAddrOUT=(epDesc->bEndpointAddress)&0x0F;
+		EPOUTwMaxPacketSize=epDesc->wMaxPacketSize;
+		intervalOUT=epDesc->bInterval;
+		epDesc++;
+		EPAddrIN=(epDesc->bEndpointAddress)&0x0F;
+		EPINwMaxPacketSize=epDesc->wMaxPacketSize;
+		intervalIN=epDesc->bInterval;
+	}
+	INdatapipe = new_Pipe(dev, pipe_type_bulk, EPAddrIN, pipe_direction_IN, EPINwMaxPacketSize, intervalIN);
+	INdatapipe->callback_function = callback;
+	OUTdatapipe = new_Pipe(dev, pipe_type_bulk, EPAddrOUT, pipe_direction_OUT, EPOUTwMaxPacketSize, intervalIN);
+	OUTdatapipe->callback_function = callback;
+	/*
 	queue_Data_Transfer(datapipe, report, 8, this);
 */
     mk_PRN_GET_DEVICE_ID(setup,0,intfNum,PRN_DEVICE_ID_MAX_LEN);
-	queue_Control_Transfer(dev, &setup, dev_id_buf, this,true);	// Enable ctrl xfer data stage interrupt to capture bytes-to-transfer
+	queue_Control_Transfer(dev, &setup, printer_device_id, this,true);	// Enable ctrl xfer data stage interrupt to capture bytes-to-transfer
 	control_queued = true;
-	//println("printer claimed this=", (uint32_t)this, HEX);
+	println("PRN claimed this=", (uint32_t)this, HEX);
 	return true;
 }
 
@@ -98,6 +112,10 @@ void Printer::control(const Transfer_t *transfer)
     {
 		println("Len:",len);
 		print_hexbytes(transfer->buffer, len);
+		printer_device_id=(uint8_t*)realloc((void*)printer_device_id,len);
+		memcpy((void*)printer_device_id,(void*)transfer->buffer,len);
+		printer_device_id_len=len;
+		ready=true;	// Device is now ready for use.
 	}
 }
 
@@ -111,18 +129,19 @@ void Printer::callback(const Transfer_t *transfer)
 
 void Printer::disconnect()
 {
-	// TODO: free resources
+	if(printer_device_id) free(printer_device_id);
 }
 
+bool Printer::print_data(const uint8_t* data, size_t len)
+{
+	queue_Data_Transfer(OUTdatapipe, (uint8_t*)data, len, this);
+}
 
 void Printer::new_data(const Transfer_t *transfer)
 {
-	println("printer data callback");
-	print("  Report: ");
-	print_hexbytes(transfer->buffer, 8);
+	println("PRN data callback");
+	print_hexbytes(transfer->buffer, transfer->length);
 	if (printerReturnsDataFunction) {
         printerReturnsDataFunction((uint8_t*)(transfer->buffer));
 	}
-	memcpy(prev_report, report, 8);
-	queue_Data_Transfer(datapipe, report, 8, this);
 }
