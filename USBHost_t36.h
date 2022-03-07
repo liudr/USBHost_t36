@@ -280,7 +280,7 @@ protected:
 	static Pipe_t * new_Pipe(Device_t *dev, uint32_t type, uint32_t endpoint,
 		uint32_t direction, uint32_t maxlen, uint32_t interval=0);
 	static bool queue_Control_Transfer(Device_t *dev, setup_t *setup,
-		void *buf, USBDriver *driver);
+		void *buf, USBDriver *driver, bool irq_data=false);	// Liu 2022-03-06 Added this option to cause irq on data stage of ctrl xfer.
 	static bool queue_Data_Transfer(Pipe_t *pipe, void *buffer,
 		uint32_t len, USBDriver *driver);
 	static Device_t * new_Device(uint32_t speed, uint32_t hub_addr, uint32_t hub_port);
@@ -288,6 +288,7 @@ protected:
 	static void enumeration(const Transfer_t *transfer);
 	static void driver_ready_for_device(USBDriver *driver);
 	static volatile bool enumeration_busy;
+	static volatile uint16_t ctrldata_bytes_to_transfer;	// Liu 2022-03-06 Added this to store bytes-to-transfer.
 public: // Maybe others may want/need to contribute memory example HID devices may want to add transfers.
 	static void contribute_Devices(Device_t *devices, uint32_t num);
 	static void contribute_Pipes(Pipe_t *pipes, uint32_t num);

@@ -143,13 +143,23 @@ Device_t * USBHost::new_Device(uint32_t speed, uint32_t hub_addr, uint32_t hub_p
 // Otherwise, the control transfer is part of the enumeration process,
 // which is implemented here.
 //
+volatile uint16_t USBHost::ctrldata_bytes_to_transfer=0;
+
 void USBHost::enumeration(const Transfer_t *transfer)
 {
 	Device_t *dev;
 	uint32_t len;
-
 	// If a driver created this control transfer, allow it to process the result
 	if (transfer->driver) {
+        // Only optional data and status stages trigger interrupts.
+        // If bytes-to-transfer isn't zero, save it and return. Assume this is caused by ctrl xfer requesting too much IN data.
+        // Save bytes_to_transfer from this stage and return so the state machine is not confused.
+        // If transfer buffer is NULL, this must be status stage. Write saved bytes_to_transfer to token.
+        if ((((transfer->qtd.token) >> 16U) & 0x7FFF))
+        {
+            ctrldata_bytes_to_transfer=(((transfer->qtd.token) >> 16U) & 0x7FFF);
+            return;
+        }
 		transfer->driver->control(transfer);
 		return;
 	}

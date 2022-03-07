@@ -673,19 +673,19 @@ static void init_qTD(volatile Transfer_t *t, void *buf, uint32_t len,
 	if (data01) data01 = 0x80000000;
 	t->qtd.token = data01 | (len << 16) | (irq ? 0x8000 : 0) | (pid << 8) | 0x80;
 	uint32_t addr = (uint32_t)buf;
-	t->qtd.buffer[0] = addr;
-	addr &= 0xFFFFF000;
-	t->qtd.buffer[1] = addr + 0x1000;
-	t->qtd.buffer[2] = addr + 0x2000;
-	t->qtd.buffer[3] = addr + 0x3000;
-	t->qtd.buffer[4] = addr + 0x4000;
+	t->qtd.buffer[0] = addr;	// Store buffer address. If transfer has set this to NULL, it is copied to buffer.
+	addr &= 0xFFFFF000;			// Remove the offset and align with 4K boundary
+	t->qtd.buffer[1] = addr + 0x1000;	// Store second buffer address, 4K boundary
+	t->qtd.buffer[2] = addr + 0x2000;	// Store third buffer address, 4K boundary
+	t->qtd.buffer[3] = addr + 0x3000;	// Store fourth buffer address, 4K boundary
+	t->qtd.buffer[4] = addr + 0x4000;	// Store fifth buffer address, 4K boundary
 }
 
 
 
 // Create a Control Transfer and queue it
 //
-bool USBHost::queue_Control_Transfer(Device_t *dev, setup_t *setup, void *buf, USBDriver *driver)
+bool USBHost::queue_Control_Transfer(Device_t *dev, setup_t *setup, void *buf, USBDriver *driver, bool irq_data=false)
 {
 	Transfer_t *transfer, *data, *status;
 	uint32_t status_direction;
@@ -712,7 +712,13 @@ bool USBHost::queue_Control_Transfer(Device_t *dev, setup_t *setup, void *buf, U
 			return false;
 		}
 		uint32_t pid = (setup->bmRequestType & 0x80) ? 1 : 0;
-		init_qTD(data, buf, setup->wLength, pid, 1, false);
+		//init_qTD(data, buf, setup->wLength, pid, 1, false);
+		init_qTD(data, buf, setup->wLength, pid, 1, irq_data);	// Liu 2022-03-06 Enabled interrupt to capture bytes_to_transfer after data stage
+		if (irq_data)
+		{
+			data->driver=driver;	// Liu 2022-03-06 Added driver to intercept the bytes_to_transfer.
+			data->pipe = dev->control_pipe;
+		}
 		transfer->qtd.next = (uint32_t)data;
 		data->qtd.next = (uint32_t)status;
 		status_direction = pid ^ 1;
@@ -724,12 +730,12 @@ bool USBHost::queue_Control_Transfer(Device_t *dev, setup_t *setup, void *buf, U
 	init_qTD(transfer, setup, 8, 2, 0, false);
 	init_qTD(status, NULL, 0, status_direction, 1, true);
 	status->pipe = dev->control_pipe;
-	status->buffer = buf;
+	status->buffer = buf;               // Liu 2022-03-06 I think this is duplicating the setup packet request so the status transfer complete interrupt will have this information.
 	status->length = setup->wLength;
 	status->setup.word1 = setup->word1;
 	status->setup.word2 = setup->word2;
 	status->driver = driver;
-	status->qtd.next = 1;
+	status->qtd.next = 1;               // End the queue
 	return queue_Transfer(dev->control_pipe, transfer);
 }
 
@@ -853,7 +859,7 @@ bool USBHost::followup_Transfer(Transfer_t *transfer)
 
 	if (!(transfer->qtd.token & 0x80)) {	// bmTDToken_Active
 		// TODO: check error status
-		if (transfer->qtd.token & 0x8000) {	// bmTDToken_DataToogle
+		if (transfer->qtd.token & 0x8000) {	// bmTDToken_InterruptOnComplete
 			// this transfer caused an interrupt
 			if (transfer->pipe->callback_function) {
 				// do the callback
