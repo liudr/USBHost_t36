@@ -94,7 +94,7 @@ void BarcodescannerController::control(const Transfer_t *transfer)
 	USBHost::ctrldata_bytes_to_transfer=0;	// Set it to zero just in case it's not so it only gets used once and next time won't affect length.
 	println("BSC CTRL CB. qh.token:", uint32_t(transfer->qtd.token), HEX);
 	//println("HIDR:", (bmREQ_TYPE_GET_HIDR_DESC+(HID_REQUEST_GET_HIDR_DESC<<8U)+(HID_DESCRIPTOR_REPORT<<24U)), HEX);
-	println("mesg:", mesg, HEX);
+	println("msg:", mesg, HEX);
 	control_queued = false;
 	if (mesg == 0x00B21 && transfer->length == 0) { // SET_PROTOCOL
 		mk_HID_SET_IDLE(setup);//mk_setup(setup, 0x21, 10, 0, 0, 0); // 10=SET_IDLE
@@ -105,7 +105,7 @@ void BarcodescannerController::control(const Transfer_t *transfer)
 		//mk_HID_GET_REPORT_DESC(setup,0,wDescriptorLength);
 		mk_HID_GET_REPORT_DESC(setup,0,HID_REPORT_DESC_MAX_LEN);
 		control_queued = true;
-		queue_Control_Transfer(device, &setup, hid_rep_desc_buf, this, true);	// Not working. Enable ctrl xfer data stage interrupt to capture bytes-to-transfer
+		queue_Control_Transfer(device, &setup, hid_rep_desc_buf, this, true);	// Enable ctrl xfer data stage interrupt to capture bytes-to-transfer
 	}
 	else if (mesg == HID_GET_REPORT_DESC_MSG) { // GET_HIDR_DESC
         println("Len:",len);

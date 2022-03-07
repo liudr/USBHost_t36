@@ -73,8 +73,8 @@ bool Printer::claim(Device_t *dev, int type, const uint8_t *descriptors, uint32_
 	datapipe->callback_function = callback;
 	queue_Data_Transfer(datapipe, report, 8, this);
 */
-    PRN_GET_DEVICE_ID(setup,0,intfNum,PRN_DEVICE_ID_MAX_LEN);
-	queue_Control_Transfer(dev, &setup, dev_id_buf, this);
+    mk_PRN_GET_DEVICE_ID(setup,0,intfNum,PRN_DEVICE_ID_MAX_LEN);
+	queue_Control_Transfer(dev, &setup, dev_id_buf, this,true);	// Enable ctrl xfer data stage interrupt to capture bytes-to-transfer
 	control_queued = true;
 	//println("printer claimed this=", (uint32_t)this, HEX);
 	return true;
@@ -82,17 +82,22 @@ bool Printer::claim(Device_t *dev, int type, const uint8_t *descriptors, uint32_
 
 void Printer::control(const Transfer_t *transfer)
 {
-    uint32_t len = transfer->length - (((transfer->qtd.token) >> 16) & 0x7FFF);
-	println("PRN CTRL CB. qh.token:", transfer->qtd.token, HEX);
-	control_queued = false;
-    println("Len:",len);
-	print_hexbytes(transfer->buffer, len);
+    uint32_t len = transfer->length - USBHost::ctrldata_bytes_to_transfer;
 	uint32_t mesg = transfer->setup.word1;
-	println("  mesg = ", mesg, HEX);
+	USBHost::ctrldata_bytes_to_transfer=0;	// Set it to zero just in case it's not so it only gets used once and next time won't affect length.
+	control_queued = false;
+	println("PRN CTRL CB. qh.token:", transfer->qtd.token, HEX);
+	println("msg:", mesg, HEX);
+
 	if (mesg == 0x00B21 && transfer->length == 0) {
-		mk_HID_SET_IDLE(setup);//mk_setup(setup, 0x21, 10, 0, 0, 0); // 10=SET_IDLE
+		mk_HID_SET_IDLE(setup);
 		control_queued = true;
 		queue_Control_Transfer(device, &setup, NULL, this);
+	}
+	else if ((transfer->setup.bmRequestType==bmREQUEST_TYPE_GET_DEVICE_ID)&&(transfer->setup.bRequest==PRINTER_REQUEST_GET_DEVICE_ID))
+    {
+		println("Len:",len);
+		print_hexbytes(transfer->buffer, len);
 	}
 }
 
