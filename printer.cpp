@@ -134,13 +134,20 @@ void Printer::disconnect()
 
 bool Printer::print_data(const uint8_t* data, size_t len)
 {
+    ready=false;
 	queue_Data_Transfer(OUTdatapipe, (uint8_t*)data, len, this);
 }
 
 void Printer::new_data(const Transfer_t *transfer)
 {
-	println("PRN data callback");
-	print_hexbytes(transfer->buffer, transfer->length);
+    if (transfer->pipe->direction==pipe_direction_IN) {
+    	println("PRN data rcvd:",transfer->length);
+	    print_hexbytes(transfer->buffer, transfer->length);
+    }
+    if (transfer->pipe->direction==pipe_direction_OUT) {
+        ready=true;
+    	println("PRN data sent:",transfer->length);
+    }
 	if (printerReturnsDataFunction) {
         printerReturnsDataFunction((uint8_t*)(transfer->buffer));
 	}
