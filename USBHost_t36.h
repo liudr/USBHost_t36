@@ -212,20 +212,20 @@ struct Device_struct {
 	Pipe_t   *data_pipes;
 	Device_t *next;
 	USBDriver *drivers;
-	strbuf_t *strbuf;
+	strbuf_t *strbuf;			// Assigned in enumeration
 	uint8_t  speed; // 0=12, 1=1.5, 2=480 Mbit/sec
 	uint8_t  address;
 	uint8_t  hub_address;
 	uint8_t  hub_port;
 	uint8_t  enum_state;    // 0: read 8 bytes of DEV DESC, 1: read 18 bytes of DEV DESC, etc. enumeration.cpp
-	uint8_t  bDeviceClass;
-	uint8_t  bDeviceSubClass;
-	uint8_t  bDeviceProtocol;
-	uint8_t  bmAttributes;
-	uint8_t  bMaxPower;
-	uint16_t idVendor;
-	uint16_t idProduct;
-	uint16_t LanguageID;
+	uint8_t  bDeviceClass;		// Assigned from DEV DESC in enumeration enum_got_DEV18B_parse_dev state
+	uint8_t  bDeviceSubClass;	// Assigned from DEV DESC in enumeration enum_got_DEV18B_parse_dev state
+	uint8_t  bDeviceProtocol;	// Assigned from DEV DESC in enumeration enum_got_DEV18B_parse_dev state
+	uint8_t  bmAttributes;		// Assigned from DEV DESC in enumeration enum_got_CONF_all_set_conf state
+	uint8_t  bMaxPower;			// Assigned from DEV DESC in enumeration enum_got_CONF_all_set_conf state
+	uint16_t idVendor;			// Assigned from DEV DESC in enumeration enum_got_DEV18B_parse_dev state
+	uint16_t idProduct;			// Assigned from DEV DESC in enumeration enum_got_DEV18B_parse_dev state
+	uint16_t LanguageID;		// Assigned from DEV DESC in enumeration enum_req_langID state
 };
 
 /***

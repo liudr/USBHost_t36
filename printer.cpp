@@ -58,7 +58,7 @@ bool Printer::claim(Device_t *dev, int type, const uint8_t *descriptors, uint32_
 	if (intDesc->bInterfaceClass != USB_CLASS_PRINTER) return false;
 	if (intDesc->bInterfaceSubClass != PRINTER_PRINTERS_SUBCLASS) return false;
 	if (!((intDesc->bInterfaceProtocol == PRINTER_PROTOCOL_UNIDIRECTIONAL)||(intDesc->bInterfaceProtocol == PRINTER_PROTOCOL_BIDIRECTIONAL)||(intDesc->bInterfaceProtocol == PRINTER_PROTOCOL_1284_4_COMPATIBLE_BIDIRECTIONAL))) return false;
-    // Update from here on
+    // Update from here on. Need to do better job to skip over INT EP among the EPs under an interface.
 	println("EPAddr:", (epDesc->bEndpointAddress)&0x0F, HEX);
 	if ((epDesc->bEndpointAddress)&USB_SETUP_DEVICE_TO_HOST)	// First EP is IN, then OUT
 	{
