@@ -102,7 +102,7 @@ bool USBHub::claim(Device_t *dev, int type, const uint8_t *d, uint32_t len)
 	memset(portstate, 0, sizeof(portstate));
 	memset(devicelist, 0, sizeof(devicelist));
 
-	mk_setup(setup, 0xA0, 6, 0x2900, 0, sizeof(hub_desc));
+	mk_setup(setup, 0xA0, 6, 0x2900, 0, sizeof(hub_desc));  // Request hub desc
 	queue_Control_Transfer(dev, &setup, hub_desc, this);
 
 	return true;
